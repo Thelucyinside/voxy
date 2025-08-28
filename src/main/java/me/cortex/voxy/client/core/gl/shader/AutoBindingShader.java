@@ -8,12 +8,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.lwjgl.opengl.ARBDirectStateAccess.glBindTextureUnit;
-import static org.lwjgl.opengl.GL30.glBindBufferBase;
-import static org.lwjgl.opengl.GL30.glBindBufferRange;
-import static org.lwjgl.opengl.GL31.GL_UNIFORM_BUFFER;
-import static org.lwjgl.opengl.GL33.glBindSampler;
-import static org.lwjgl.opengl.GL43.GL_SHADER_STORAGE_BUFFER;
+import static org.lwjgl.opengles.GLES20.glActiveTexture;
+import static org.lwjgl.opengles.GLES20.glBindTexture;
+import static org.lwjgl.opengles.GLES30.GL_UNIFORM_BUFFER;
+import static org.lwjgl.opengles.GLES30.glBindSampler;
+import static org.lwjgl.opengles.GLES31.GL_SHADER_STORAGE_BUFFER;
+import static org.lwjgl.opengles.GLES31.glBindBufferBase;
+import static org.lwjgl.opengles.GLES31.glBindBufferRange;
+import static org.lwjgl.opengles.GLES20.GL_TEXTURE0;
 
 
 //TODO: rewrite the entire shader builder system
@@ -53,7 +55,7 @@ public class AutoBindingShader extends Shader {
     }
 
     public AutoBindingShader ssbo(int index, GlBuffer buffer, long offset) {
-        this.insertOrReplaceBinding(new BufferBinding(GL_SHADER_STORAGE_BUFFER, index, buffer, offset, -1));
+        this.insertOrReplaceBinding(new BufferBinding(GL_SHADER_STORAGE_BUFFER, index, buffer, offset, buffer.size() - offset));
         return this;
     }
 
@@ -67,7 +69,7 @@ public class AutoBindingShader extends Shader {
     }
 
     public AutoBindingShader ubo(int index, GlBuffer buffer, long offset) {
-        this.insertOrReplaceBinding(new BufferBinding(GL_UNIFORM_BUFFER, index, buffer, offset, -1));
+        this.insertOrReplaceBinding(new BufferBinding(GL_UNIFORM_BUFFER, index, buffer, offset, buffer.size() - offset));
         return this;
     }
 
@@ -134,7 +136,8 @@ public class AutoBindingShader extends Shader {
             for (var binding : this.textureBindings) {
                 if (binding.texture != null) {
                     binding.texture.assertNotFreed();
-                    glBindTextureUnit(binding.unit, binding.texture.id);
+                    glActiveTexture(GL_TEXTURE0 + binding.unit);
+                    glBindTexture(binding.texture.target, binding.texture.id);
                 }
                 if (binding.sampler != -1) {
                     glBindSampler(binding.unit, binding.sampler);

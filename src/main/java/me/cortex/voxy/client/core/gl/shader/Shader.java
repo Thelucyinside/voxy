@@ -5,7 +5,7 @@ import me.cortex.voxy.client.core.gl.GlDebug;
 import me.cortex.voxy.common.Logger;
 import me.cortex.voxy.common.util.ThreadUtils;
 import me.cortex.voxy.common.util.TrackedObject;
-import org.lwjgl.opengl.GL20C;
+import org.lwjgl.opengles.GLES20;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
@@ -15,8 +15,8 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.lwjgl.opengl.GL20.glDeleteProgram;
-import static org.lwjgl.opengl.GL20.glUseProgram;
+import static org.lwjgl.opengles.GLES20.glDeleteProgram;
+import static org.lwjgl.opengles.GLES20.glUseProgram;
 
 public class Shader extends TrackedObject {
     private final int id;
@@ -126,7 +126,7 @@ public class Shader extends TrackedObject {
 
 
         private int compileToProgram() {
-            int program = GL20C.glCreateProgram();
+            int program = GLES20.glCreateProgram();
             int[] shaders = new int[this.sources.size()];
             {
                 String defs = this.defines.entrySet().stream().map(a->"#define " + a.getKey() + " " + a.getValue() + "\n").collect(Collectors.joining());
@@ -144,12 +144,12 @@ public class Shader extends TrackedObject {
             }
 
             for (int i : shaders) {
-                GL20C.glAttachShader(program, i);
+                GLES20.glAttachShader(program, i);
             }
-            GL20C.glLinkProgram(program);
+            GLES20.glLinkProgram(program);
             for (int i : shaders) {
-                GL20C.glDetachShader(program, i);
-                GL20C.glDeleteShader(i);
+                GLES20.glDetachShader(program, i);
+                GLES20.glDeleteShader(i);
             }
             printProgramLinkLog(program);
             verifyProgramLinked(program);
@@ -163,7 +163,7 @@ public class Shader extends TrackedObject {
         }
 
         private static void printProgramLinkLog(int program) {
-            String log = GL20C.glGetProgramInfoLog(program);
+            String log = GLES20.glGetProgramInfoLog(program);
 
             if (!log.isEmpty()) {
                 Logger.error(log);
@@ -171,33 +171,35 @@ public class Shader extends TrackedObject {
         }
 
         private static void verifyProgramLinked(int program) {
-            int result = GL20C.glGetProgrami(program, GL20C.GL_LINK_STATUS);
+            int[] result = new int[1];
+            GLES20.glGetProgramiv(program, GLES20.GL_LINK_STATUS, result);
 
-            if (result != GL20C.GL_TRUE) {
+            if (result[0] != GLES20.GL_TRUE) {
                 throw new RuntimeException("Shader program linking failed, see log for details");
             }
         }
 
         private static int createShader(ShaderType type, String src) {
-            int shader = GL20C.glCreateShader(type.gl);
+            int shader = GLES20.glCreateShader(type.gl);
             {//https://github.com/CaffeineMC/sodium/blob/fc42a7b19836c98a35df46e63303608de0587ab6/src/main/java/me/jellysquid/mods/sodium/client/gl/shader/ShaderWorkarounds.java
                 long ptr = MemoryUtil.memAddress(MemoryUtil.memUTF8(src, true));
                 try (var stack = MemoryStack.stackPush()) {
-                    GL20C.nglShaderSource(shader, 1, stack.pointers(ptr).address0(), 0);
+                    GLES20.nglShaderSource(shader, 1, stack.pointers(ptr).address0(), 0);
                 }
                 MemoryUtil.nmemFree(ptr);
             }
-            GL20C.glCompileShader(shader);
-            String log = GL20C.glGetShaderInfoLog(shader);
+            GLES20.glCompileShader(shader);
+            String log = GLES20.glGetShaderInfoLog(shader);
 
             if (!log.isEmpty()) {
                 Logger.warn(log);
             }
 
-            int result = GL20C.glGetShaderi(shader, GL20C.GL_COMPILE_STATUS);
+            int[] result = new int[1];
+            GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, result);
 
-            if (result != GL20C.GL_TRUE) {
-                GL20C.glDeleteShader(shader);
+            if (result[0] != GLES20.GL_TRUE) {
+                GLES20.glDeleteShader(shader);
                 try {
                     Files.writeString(Path.of("SHADER_DUMP.txt"), src);
                 } catch (IOException e) {

@@ -2,14 +2,18 @@ package me.cortex.voxy.client.core.gl;
 
 import me.cortex.voxy.common.util.TrackedObject;
 
-import static org.lwjgl.opengl.GL11.GL_RGBA8;
-import static org.lwjgl.opengl.GL11C.*;
-import static org.lwjgl.opengl.GL30.GL_DEPTH24_STENCIL8;
-import static org.lwjgl.opengl.GL45C.*;
+import static org.lwjgl.opengles.GLES20.*;
+import static org.lwjgl.opengles.GLES30.GL_DEPTH24_STENCIL8;
+import static org.lwjgl.opengles.GLES30.GL_R32F;
+import static org.lwjgl.opengles.GLES30.glTexStorage2D;
+import static org.lwjgl.opengles.GLES30.GL_RGBA8;
+import static org.lwjgl.opengles.GLES30.GL_DEPTH_COMPONENT24;
+import static org.lwjgl.opengles.GLES30.GL_DEPTH_COMPONENT32F;
+
 
 public class GlTexture extends TrackedObject {
     public final int id;
-    private final int type;
+    public final int target;
     private int format;
     private int width;
     private int height;
@@ -24,8 +28,8 @@ public class GlTexture extends TrackedObject {
     }
 
     public GlTexture(int type) {
-        this.id = glCreateTextures(type);
-        this.type = type;
+        this.id = glGenTextures();
+        this.target = type;
         COUNT++;
     }
 
@@ -33,9 +37,9 @@ public class GlTexture extends TrackedObject {
         if (useGenTypes) {
             this.id = glGenTextures();
         } else {
-            this.id = glCreateTextures(type);
+            this.id = glGenTextures();
         }
-        this.type = type;
+        this.target = type;
         COUNT++;
     }
 
@@ -46,8 +50,10 @@ public class GlTexture extends TrackedObject {
         this.hasAllocated = true;
 
         this.format = format;
-        if (this.type == GL_TEXTURE_2D) {
-            glTextureStorage2D(this.id, levels, format, width, height);
+        if (this.target == GL_TEXTURE_2D) {
+            glBindTexture(this.target, this.id);
+            glTexStorage2D(this.target, levels, format, width, height);
+            glBindTexture(this.target, 0);
             this.width = width;
             this.height = height;
             this.levels = levels;
@@ -59,10 +65,7 @@ public class GlTexture extends TrackedObject {
     }
 
     public GlTexture createView() {
-        this.assertAllocated();
-        var view = new GlTexture(this.type, true);
-        glTextureView(view.id, this.type, this.id, this.format, 0, 1, 0, 1);
-        return view;
+        throw new UnsupportedOperationException("Texture views not supported in GLES");
     }
 
     @Override
@@ -99,12 +102,8 @@ public class GlTexture extends TrackedObject {
     private long getEstimatedSize() {
         this.assertAllocated();
         long elemSize = switch (this.format) {
-            case GL_RGBA8, GL_DEPTH24_STENCIL8, GL_R32F -> 4;
-            case GL_DEPTH_COMPONENT24 -> 4;//TODO: check this is right????
-            case GL_DEPTH_COMPONENT32F -> 4;
-            case GL_DEPTH_COMPONENT32 -> 4;
-
-            default -> throw new IllegalStateException("Unknown element size");
+            case GL_RGBA8, GL_DEPTH24_STENCIL8, GL_R32F, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT32F -> 4;
+            default -> throw new IllegalStateException("Unknown element size for format " + this.format);
         };
 
         long size = 0;

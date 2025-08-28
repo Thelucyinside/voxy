@@ -1,12 +1,13 @@
 package me.cortex.voxy.client.core.gl;
 
 import me.cortex.voxy.common.util.TrackedObject;
-import org.lwjgl.opengl.GL11;
 import org.lwjgl.system.MemoryUtil;
 
-import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
-import static org.lwjgl.opengl.GL15.glDeleteBuffers;
-import static org.lwjgl.opengl.GL45C.*;
+import java.nio.ByteBuffer;
+
+import static org.lwjgl.opengles.GLES20.*;
+import static org.lwjgl.opengles.GLES30.GL_RED_INTEGER;
+import static org.lwjgl.opengles.GLES31.*;
 
 public class GlBuffer extends TrackedObject {
     public final int id;
@@ -16,13 +17,15 @@ public class GlBuffer extends TrackedObject {
     private static long TOTAL_SIZE;
 
     public GlBuffer(long size) {
-        this(size, 0);
+        this(size, GL_STATIC_DRAW);
     }
 
-    public GlBuffer(long size, int flags) {
-        this.id = glCreateBuffers();
+    public GlBuffer(long size, int usage) {
+        this.id = glGenBuffers();
         this.size = size;
-        glNamedBufferStorage(this.id, size, flags);
+        glBindBuffer(GL_ARRAY_BUFFER, this.id);
+        glBufferData(GL_ARRAY_BUFFER, size, usage);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         this.zero();
 
         COUNT++;
@@ -43,23 +46,32 @@ public class GlBuffer extends TrackedObject {
     }
 
     public GlBuffer zero() {
-        nglClearNamedBufferData(this.id, GL_R8UI, GL_RED_INTEGER, GL_UNSIGNED_BYTE, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, this.id);
+        ByteBuffer data = MemoryUtil.memCalloc((int)this.size);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, data);
+        MemoryUtil.memFree(data);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         return this;
     }
 
     public GlBuffer zeroRange(long offset, long size) {
-        nglClearNamedBufferSubData(this.id, GL_R8UI, offset, size, GL_RED_INTEGER, GL_UNSIGNED_BYTE, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, this.id);
+        ByteBuffer data = MemoryUtil.memCalloc((int)size);
+        glBufferSubData(GL_ARRAY_BUFFER, offset, data);
+        MemoryUtil.memFree(data);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         return this;
     }
 
     public GlBuffer fill(int data) {
-        //Clear unpack values
-        //Fixed in mesa commit a5c3c452
-        glPixelStorei(GL11.GL_UNPACK_SKIP_ROWS, 0);
-        glPixelStorei(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-
-        MemoryUtil.memPutInt(SCRATCH, data);
-        nglClearNamedBufferData(this.id, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, SCRATCH);
+        glBindBuffer(GL_ARRAY_BUFFER, this.id);
+        ByteBuffer buffer = MemoryUtil.memAlloc((int)this.size);
+        for (int i = 0; i < this.size; i += 4) {
+            buffer.putInt(i, data);
+        }
+        glBufferSubData(GL_ARRAY_BUFFER, 0, buffer);
+        MemoryUtil.memFree(buffer);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         return this;
     }
 

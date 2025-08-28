@@ -35,18 +35,13 @@ import net.caffeinemc.mods.sodium.client.util.FogParameters;
 import net.minecraft.client.MinecraftClient;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
-import org.lwjgl.opengl.GL11;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static org.lwjgl.opengl.GL11.GL_VIEWPORT;
-import static org.lwjgl.opengl.GL11.glGetIntegerv;
-import static org.lwjgl.opengl.GL11C.*;
-import static org.lwjgl.opengl.GL30C.*;
-import static org.lwjgl.opengl.GL33.glBindSampler;
-import static org.lwjgl.opengl.GL43.GL_SHADER_STORAGE_BUFFER;
-import static org.lwjgl.opengl.GL43C.GL_SHADER_STORAGE_BUFFER_BINDING;
+import static org.lwjgl.opengles.GLES20.*;
+import static org.lwjgl.opengles.GLES30.glBindSampler;
+import static org.lwjgl.opengles.GLES31.*;
 
 public class VoxyRenderSystem {
     private final WorldEngine worldIn;
@@ -80,7 +75,9 @@ public class VoxyRenderSystem {
         //Fking HATE EVERYTHING AAAAAAAAAAAAAAAA
         int[] oldBufferBindings = new int[10];
         for (int i = 0; i < oldBufferBindings.length; i++) {
-            oldBufferBindings[i] = glGetIntegeri(GL_SHADER_STORAGE_BUFFER_BINDING, i);
+            int[] buffer = new int[1];
+            glGetIntegeri_v(GL_SHADER_STORAGE_BUFFER_BINDING, i, buffer);
+            oldBufferBindings[i] = buffer[0];
         }
 
         try {
@@ -198,11 +195,15 @@ public class VoxyRenderSystem {
         //TODO: optimize
         int[] oldBufferBindings = new int[10];
         for (int i = 0; i < oldBufferBindings.length; i++) {
-            oldBufferBindings[i] = glGetIntegeri(GL_SHADER_STORAGE_BUFFER_BINDING, i);
+            int[] buffer = new int[1];
+            glGetIntegeri_v(GL_SHADER_STORAGE_BUFFER_BINDING, i, buffer);
+            oldBufferBindings[i] = buffer[0];
         }
 
 
-        int oldFB = GL11.glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
+        int[] oldFBArr = new int[1];
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, oldFBArr);
+        int oldFB = oldFBArr[0];
         int boundFB = oldFB;
 
         //var target = DefaultTerrainRenderPasses.CUTOUT.getTarget();
@@ -345,7 +346,7 @@ public class VoxyRenderSystem {
         UploadStream.INSTANCE.tick();
         //Done here as is allows less gl state resetup
         this.modelService.tick(100_000_000);
-        GL11.glFinish();
+        glFinish();
         return this.nodeManager.hasWork() || this.renderGen.getTaskCount()!=0 || !this.modelService.areQueuesEmpty();
     }
 
